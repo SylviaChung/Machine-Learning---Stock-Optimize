@@ -1,0 +1,166 @@
+#Business problem 1: Use ANN for supervised learning and cross-validation
+
+#1.Data preparation and standardization.
+#Use StandardScaler to standardize the input features to ensure that the data mean is 0 and the standard deviation is 1, which is beneficial to the training stability of the neural network.
+
+#2.Build ANN model
+#A multilayer perceptron (MLP) neural network was built using the Keras library, with the input layer matching the number of input features and the output layer matching the number of target variables.
+
+#3.cross validation
+#Use KFold to perform 5-fold cross-validation on the training data, evaluate model performance and record the mean square error (MSE) of each fold.
+
+#4.Hyperparameter tuning
+#Use GridSearchCV to perform grid search and try different learning rates, number of hidden layers, and number of neurons per layer to find optimal hyperparameters.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+#Business Problem 1 - Use ANN for Supervised Learning and Cross-validation
+
+# build a Neural Network model using Keras for regression and implement cross-validation
+# using KFold from Scikit-Learn to tune hyperparameters.
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import GridSearchCV
+import scipy.optimize as sco
+#link to datadrive
+from google.colab import drive
+drive.mount('/content/drive')
+file_path = '/content/drive/MyDrive/Departement/project/stock portfolio performance data set.csv'
+
+-----
+#building data
+data = pd.DataFrame ({
+    'Large B/P': np.random.rand(100),
+    'Large ROE': np.random.rand(100),
+    'Large S/P': np.random.rand(100),
+    'Large Market Value': np.random.rand(100),
+    'Annual Return': np.random.rand(100),
+    'Excess Return': np.random.rand(100),
+    'Systematic Risk': np.random.rand(100),
+    'Total Risk': np.random.rand(100),
+    'Abs. Win Rate': np.random.rand(100),
+    'Rel. Win Rate': np.random.rand(100)})
+#separate the input feature (X) and output variables (y)
+X = data [['Large B/P', 'Large ROE','Large S/P','Large Market Value']]
+y = data [[ 'Annual Return','Excess Return','Systematic Risk', 'Total Risk','Abs. Win Rate','Rel. Win Rate']]
+#splict the data into training set and testing set
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+#Standardize the features
+#Ensure that the training set and test set use the same standardization rules to prevent data leakage or result deviation.
+scaler_X = StandardScaler()
+X_train_scaled = scaler_X.fit_transform(X_train)
+X_test_scaled = scaler_X.transform(X_test)
+
+------
+# Visualization: Correlation Heatmap
+# This method can clearly show the correlation between input features and target variables,
+# helping to identify potential relationships.
+import matplotlib.pyplot as plt  # Import matplotlib.pyplot
+import seaborn as sns  # Import seaborn
+data_full = pd.concat([X, y], axis=1)
+
+# Calculate the correlation matrix
+correlation_matrix = data_full.corr()
+
+# Plot the heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title("Correlation Heatmap between Features and Targets")
+plt.show()
+
+------
+# Define the ANN model
+def create_model(learning_rate=0.001, num_layers=2, units_per_layer=64):
+    model = Sequential()
+    model.add(Dense(units_per_layer, activation='relu', input_dim=X_train_scaled.shape[1]))
+    for _ in range(num_layers - 1):
+        model.add(Dense(units_per_layer, activation='relu'))
+    model.add(Dense(y_train.shape[1]))  # Output layer matches the number of output variables
+    model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mean_squared_error')
+    return model
+# Cross-validation setup
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+mse_scores = []
+# Loop for cross-validation
+for train_index, val_index in kf.split(X_train_scaled):
+    X_train_cv, X_val_cv = X_train_scaled[train_index], X_train_scaled[val_index]
+    y_train_cv, y_val_cv = y_train.iloc[train_index], y_train.iloc[val_index]
+# Create and fit the model  # This line is now correctly indented
+    model = create_model()
+    model.fit(X_train_cv, y_train_cv, epochs=50, batch_size=16, verbose=0)
+# Evaluate the model
+y_val_pred = model.predict(X_val_cv)
+mse = mean_squared_error(y_val_cv, y_val_pred)
+mse_scores.append(mse)
+# Visualization:Plot a line chart of MSE scores per fold
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8, 5))
+plt.plot(range(1, len(mse_scores) + 1), mse_scores, marker='o', linestyle='-', color='b')
+plt.title('MSE Scores Across K-Fold Cross Validation')
+plt.xlabel('Fold Number')
+plt.ylabel('Mean Squared Error (MSE)')
+plt.grid(True)
+plt.xticks(range(1, len(mse_scores) + 1))
+plt.show()
+# Visualization:Boxplot showing MSE scores
+plt.figure(figsize=(6, 5))
+plt.boxplot(mse_scores, vert=True, patch_artist=True)
+plt.title('MSE Distribution Across Folds')
+plt.ylabel('Mean Squared Error (MSE)')
+plt.show()
+# Print cross-validation result
+print(f"Cross-Validation MSE Scores: {mse_scores}")
+print(f"Cross-Validation MSE Scores: {mse_scores}")
+print(f"Mean MSE: {np.mean(mse_scores):.4f}")
+print(f"Standard Deviation of MSE: {np.std(mse_scores):.4f}")
+
+------
+# Hyperparameter tuning (Grid Search for hyperparameters)
+# Install scikeras (make sure you're in the correct environment)
+!pip install scikeras
+
+# Import necessary modules
+from scikeras.wrappers import KerasRegressor
+from sklearn.model_selection import GridSearchCV
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from sklearn.preprocessing import StandardScaler
+
+# Assume X_train and y_train are already defined
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Define the model creation function
+def create_model(learning_rate=0.001, num_layers=2, units_per_layer=64):
+    model = Sequential()
+    model.add(Dense(units_per_layer, input_dim=X_train_scaled.shape[1], activation='relu'))
+
+    for _ in range(num_layers - 1):
+        model.add(Dense(units_per_layer, activation='relu'))
+
+    model.add(Dense(1))  # Assuming a regression problem
+    model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mean_squared_error')
+    return model
+
+# Wrapper function for KerasRegressor
+def create_model_with_params(learning_rate=0.001, num_layers=2, units_per_layer=64):
+    return create_model(learning_rate, num_layers, units_per_layer)
+
+# Set up the param_grid
+param_grid = {
+    'num_layers': [2, 3],
+    'units_per_layer': [64, 128]
+}
+
+# KerasRegressor does not directly accept 'learning_rate' in param_grid, so set it at model creation.
+model_cv = KerasRegressor(build_fn=create_model_with_params, epochs=50, batch_size=16, verbose=0)
+
+# Perform GridSearchCV for hyperparameter tuning
+grid_search = GridSearchCV
