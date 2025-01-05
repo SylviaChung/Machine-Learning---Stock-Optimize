@@ -1,0 +1,98 @@
+#Business problem 2: Portfolio optimization based on predicted performance
+
+#1.Use neural network forecasts such as Annual Return and Systematic Risk as input.
+#2.An optimization objective function is constructed to maximize the Sharpe ratio.
+#3.Use constraints and boundaries to perform portfolio optimization and output optimal portfolio weights.
+
+------
+#Business Problem 2 - Portfolio Optimization based on the predicted performance
+#use the predicted portfolio performance (e.g., returns, risks) to guide the portfolio optimization. We will apply an optimization technique to find the optimal weights for the portfolio.
+
+from google.colab import drive
+drive.mount('/content/drive')
+file_path = '/content/drive/MyDrive/Departement/project/stock portfolio performance data set.csv'
+df = pd.read_csv(file_path)
+df.head()
+
+------
+# Predicted returns and risk
+if 'Annual Return' in data.columns:
+    predicted_annual_returns = data['Annual Return'].values
+else:
+    print("The 'Annual Return' column is not present in the DataFrame.")
+if 'Systematic Risk' in data.columns:
+    predicted_risk = data['Systematic Risk'].values
+else:
+    print("The 'Systematic Risk' column is not present in the DataFrame.")
+
+-----
+# Objective function to maximize Sharpe ratio
+def objective(weights, returns, cov_matrix):
+    returns = returns.reshape(-1, 1)
+    portfolio_return = np.dot(weights, returns)
+# The change is here: weights.T is changed to weights
+    portfolio_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights.T)))
+    sharpe_ratio = portfolio_return / portfolio_volatility
+    return -sharpe_ratio  # We negate to maximize Sharpe ratio
+
+-----
+import numpy as np
+import scipy.optimize as sco
+
+# Assuming 'data' and 'predicted_annual_returns' are already defined
+input_features = ['Large B/P', 'Large ROE', 'Large S/P', 'Large Market Value']
+
+# Calculate the covariance matrix
+cov_matrix = np.cov(data[input_features].T)
+
+# Constraints: sum of weights should be 1, no short selling (weights >= 0)
+constraints = ({
+    'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1  # Sum of weights must be 1
+})
+
+# Bounds: no short-selling, weights between 0 and 1
+bounds = [(0, 1)] * len(input_features)
+initial_weights = np.ones(len(input_features)) / len(input_features)
+
+# Define the objective function
+def objective(weights, returns, cov_matrix):
+    # Calculate portfolio return (weighted average of returns for the input features)
+    portfolio_return = np.dot(weights, returns[:len(input_features)]) # Use only the relevant returns
+    # Calculate portfolio volatility (risk)
+    portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+    # Calculate Sharpe ratio
+    sharpe_ratio = portfolio_return / (portfolio_volatility + 1e-8)  # Avoid division by zero
+    return -sharpe_ratio  # Maximize Sharpe ratio
+
+# Reshape predicted_annual_returns for compatibility
+predicted_annual_returns = predicted_annual_returns.flatten()
+
+# Perform optimization
+result = sco.minimize(objective, initial_weights, args=(predicted_annual_returns, cov_matrix),
+                      method='SLSQP', bounds=bounds, constraints=constraints)
+
+# Check optimization success
+if result.success:
+    print("Optimization Successful!")
+    print("Optimal weights:", result.x)
+else:
+    print("Optimization Failed:", result.message)
+
+------
+# Display the optimal portfolio weights
+optimal_weights = result.x
+print("Optimal Portfolio Weights:", optimal_weights)
+
+# Calculate the expected return and risk (standard deviation) of the optimal portfolio
+# Get predicted returns for the input features
+predicted_returns_features = data[input_features]  # Select the columns corresponding to input features
+
+# Calculate the average return for each feature
+average_returns = predicted_returns_features.mean().values
+
+# Calculate the optimal portfolio return using the average returns
+optimal_return = np.dot(optimal_weights, average_returns)
+
+optimal_risk = np.sqrt(np.dot(optimal_weights.T, np.dot(cov_matrix, optimal_weights)))
+print(f"Optimal Portfolio Return: {optimal_return:.4f}")
+print(f"Optimal Portfolio Risk (Volatility): {optimal_risk:.4f}")
